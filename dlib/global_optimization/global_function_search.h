@@ -3,6 +3,7 @@
 #ifndef DLIB_GLOBAL_FuNCTION_SEARCH_Hh_
 #define DLIB_GLOBAL_FuNCTION_SEARCH_Hh_
 
+#include "global_function_search_abstract.h"
 #include <vector>
 #include "../matrix.h"
 #include <mutex>
@@ -16,9 +17,16 @@ namespace dlib
 
     struct function_spec
     {
-        function_spec(const matrix<double,0,1>& lower_, const matrix<double,0,1>& upper_);
+        function_spec(
+            matrix<double,0,1> bound1, 
+            matrix<double,0,1> bound2
+        );
 
-        function_spec(const matrix<double,0,1>& lower, const matrix<double,0,1>& upper, std::vector<bool> is_integer);
+        function_spec(
+            matrix<double,0,1> bound1, 
+            matrix<double,0,1> bound2, 
+            std::vector<bool> is_integer
+        );
 
         matrix<double,0,1> lower;
         matrix<double,0,1> upper;
@@ -48,7 +56,12 @@ namespace dlib
             funct_info(const funct_info&) = delete;
             funct_info& operator=(const funct_info&) = delete;
 
-            funct_info(const function_spec& spec, size_t function_idx, const std::shared_ptr<std::mutex>& m) : spec(spec), function_idx(function_idx), m(m)
+            funct_info(
+                const function_spec& spec,
+                size_t function_idx, 
+                const std::shared_ptr<std::mutex>& m
+            ) : 
+                spec(spec), function_idx(function_idx), m(m)
             {
                 best_x = zeros_matrix(spec.lower);
             }
@@ -66,7 +79,7 @@ namespace dlib
             size_t function_idx = 0;
             std::shared_ptr<std::mutex> m;
             upper_bound_function ub;
-            std::vector<outstanding_function_eval_request> incomplete_evals;
+            std::vector<outstanding_function_eval_request> outstanding_evals;
             matrix<double,0,1> best_x; 
             double best_objective_value = -std::numeric_limits<double>::infinity(); 
             double radius = 0;
@@ -81,15 +94,14 @@ namespace dlib
     public:
 
         function_evaluation_request() = delete;
-
         function_evaluation_request(const function_evaluation_request&) = delete;
         function_evaluation_request& operator=(const function_evaluation_request&) = delete;
 
-        function_evaluation_request(function_evaluation_request&& item);
 
+        function_evaluation_request(function_evaluation_request&& item);
         function_evaluation_request& operator=(function_evaluation_request&& item);
 
-        void swap(function_evaluation_request& item);
+        ~function_evaluation_request();
 
         size_t function_idx (
         ) const;
@@ -100,17 +112,11 @@ namespace dlib
         bool has_been_evaluated (
         ) const;
 
-        ~function_evaluation_request();
-
         void set (
             double y
         );
-        /*!
-            requires
-                - has_been_evaluated() == false
-            ensures
-                - #has_been_evaluated() == true
-        !*/
+
+        void swap(function_evaluation_request& item);
 
     private:
 
@@ -132,7 +138,7 @@ namespace dlib
     {
     public:
 
-        global_function_search() = delete;
+        global_function_search() = default;
 
         explicit global_function_search(
             const function_spec& function
@@ -144,13 +150,18 @@ namespace dlib
 
         global_function_search(
             const std::vector<function_spec>& functions_,
-            const std::vector<std::vector<function_evaluation>>& initial_function_evals
+            const std::vector<std::vector<function_evaluation>>& initial_function_evals,
+            const double relative_noise_magnitude = 0.001
         ); 
 
         global_function_search(const global_function_search&) = delete;
         global_function_search& operator=(const global_function_search& item) = delete;
 
-        size_t num_functions() const;
+        global_function_search(global_function_search&& item) = default;
+        global_function_search& operator=(global_function_search&& item) = default;
+
+        size_t num_functions(
+        ) const;
 
         void set_seed (
             time_t seed
@@ -200,17 +211,20 @@ namespace dlib
 
     private:
 
-        std::shared_ptr<gopt_impl::funct_info> best_function() const;
+        std::shared_ptr<gopt_impl::funct_info> best_function(
+        ) const;
 
-        std::shared_ptr<gopt_impl::funct_info> best_function(size_t& idx) const;
+        std::shared_ptr<gopt_impl::funct_info> best_function(
+            size_t& idx
+        ) const;
 
-        bool has_incomplete_trust_region_request (
+        bool has_outstanding_trust_region_request (
         ) const;
 
 
         dlib::rand rnd;
         double pure_random_search_probability = 0.02;
-        double qp_eps = 1e-11;
+        double min_trust_region_epsilon = 0;
         double relative_noise_magnitude = 0.001;
         size_t num_random_samples = 5000;
         bool do_trust_region_step = true;
