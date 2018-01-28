@@ -682,6 +682,12 @@ if (NOT TARGET dlib)
       endif()
 
 
+      # Reset the include directories to avoid an error from the number of /I -I options
+      # making the command line for nvcc too long.
+      set_directory_properties( PROPERTIES INCLUDE_DIRECTORIES "" )
+
+      # The definitions (-DFOO) from VTK were confusing nvcc
+      set_directory_properties( PROPERTIES COMPILE_DEFINITIONS "" )
 
       # Tell CMake to build dlib via add_library()/cuda_add_library()
       if (DLIB_USE_CUDA)
